@@ -6,9 +6,7 @@ knit: (function(input_file, encoding) {
  encoding=encoding,
  output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
 output:
-  html_document:
-    toc: true
-    toc_float: true
+  rmdformats::readthedown
 ---
 
 ```{r setup, include = F, message = F}
@@ -21,6 +19,7 @@ library(kableExtra)
 library(rmarkdown)
 library(plotly)
 library(formattable)
+library(rmdformats)
 
 setwd('C:/Users/danie/OneDrive/Documents/DynastyNFL/')
 taxi_squad <- readRDS('Taxi_2021.RDS') %>% 
