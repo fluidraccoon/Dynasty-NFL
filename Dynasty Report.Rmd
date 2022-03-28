@@ -1,10 +1,12 @@
 ---
-title: "NFL Dynasty Report - Week 14 Recap"
+title: "NFL Dynasty Report - Week 14"
 knit: (function(input_file, encoding) {
   out_dir <- 'docs';
   rmarkdown::render(input_file,
  encoding=encoding,
  output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+author: "Dan Coulton"
+date: "`r Sys.Date()`"
 output:
   rmdformats::readthedown
 ---
