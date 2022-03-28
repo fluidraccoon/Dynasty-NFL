@@ -22,6 +22,7 @@ library(rmarkdown)
 library(plotly)
 library(formattable)
 library(rmdformats)
+library(shiny)
 
 setwd('C:/Users/danie/OneDrive/Documents/DynastyNFL/')
 taxi_squad <- readRDS('Taxi_2021.RDS') %>% 
@@ -625,7 +626,9 @@ rm(projected_draft_table)
 transactions <- ff_transactions(dynasty_conn) %>% 
   left_join(user_info[, c('roster_id', 'Manager')], by = c('franchise_id' = 'roster_id'))
 
-transactions %>% 
+#wrapping div round (and aligning left) helps to format the graph
+
+div(transactions %>% 
   filter(type == 'trade') %>% 
   select(timestamp, type, Manager) %>% 
   distinct() %>%
@@ -636,6 +639,6 @@ transactions %>%
   add_trace(x = ~Manager, type = 'bar') %>% 
   layout(title = ' Number of 2021 Trades by Team',
          xaxis = list(title = 'Team', categoryorder = "array", categoryarray = ~Trade_Count, fixedrange = TRUE),
-         yaxis = list(title = 'Number of Trades', fixedrange = TRUE))
+         yaxis = list(title = 'Number of Trades', fixedrange = TRUE)), align = 'left')
 
 ```
