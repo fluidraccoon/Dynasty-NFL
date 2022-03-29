@@ -333,8 +333,8 @@ div(pts_season %>%
          xaxis = list(title = 'Expected Wins', tick0=1, dtick=1, fixedrange = TRUE),
          yaxis = list(title = 'Actual Wins', tick0=1, dtick=1, fixedrange = TRUE),
          hovermode = 'compare',
-         #legend = list(orientation = "h", xanchor = "center", x = 0.5, y = -0.3)) %>%
-         legend = list(orientation = 'h', y = -0.3)) %>%
+         legend = list(orientation = 'h', y = -0.3),
+         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent') %>%
   plotly::style(hoverinfo = 'none'), align = 'left')
   #add_text(textposition = 'top')
 
@@ -370,7 +370,8 @@ div(xWins_vs_avg |>
   layout(title = 'xWins vs Average over the Season',
          xaxis = list(title = 'Week',fixedrange = TRUE, tickmode = 'linear'),
          yaxis = list(title = 'xWins vs Average',  categoryorder = "array", categoryarray = ~win_diff, tick0=1, dtick=1, fixedrange = TRUE),
-         legend = list(orientation = 'h', y = -0.3)), align = 'left')
+         legend = list(orientation = 'h', y = -0.3),
+         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
 
 ```
 <br>
@@ -641,6 +642,8 @@ div(transactions %>%
   add_trace(x = ~Manager, type = 'bar') %>% 
   layout(title = ' Number of 2021 Trades by Team',
          xaxis = list(title = 'Team', categoryorder = "array", categoryarray = ~Trade_Count, fixedrange = TRUE),
-         yaxis = list(title = 'Number of Trades', fixedrange = TRUE)), align = 'left')
+         yaxis = list(title = 'Number of Trades', fixedrange = TRUE),
+         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
+
 
 ```
