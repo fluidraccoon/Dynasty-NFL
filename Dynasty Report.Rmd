@@ -370,7 +370,7 @@ div(xWins_vs_avg |>
   layout(title = 'xWins vs Average over the Season',
          xaxis = list(title = 'Week',fixedrange = TRUE, tickmode = 'linear'),
          yaxis = list(title = 'xWins vs Average',  categoryorder = "array", categoryarray = ~win_diff, tick0=1, dtick=1, fixedrange = TRUE),
-         legend = list(title=list(text='<b> Manager </b>'))), align = 'left')
+         legend = list(orientation = 'h', y = -0.3)), align = 'left')
 
 ```
 <br>
@@ -395,12 +395,13 @@ div(position %>%
   ungroup() %>% 
   plot_ly(y = ~Position) %>% 
   add_trace(x = ~gameweek, color = ~Manager, type = 'scatter', mode = 'lines+markers', colors = 'Paired', text = ~Manager, color = ~Manager,
-            hovertemplate = paste('Week %{x}', '<br> %{text}', '<br> Position: %{y}', '<extra></extra>')) %>% 
+            hovertemplate = paste('Week %{x}', '<br>%{text}', '<br>Position: %{y}', '<extra></extra>')) %>% 
   layout(title = 'League Position by Week',
          xaxis = list(title = 'Week',fixedrange = TRUE, tickmode = 'linear'),
          yaxis = list(title = 'League Position',  categoryorder = "array", categoryarray = ~Position, autorange = 'reversed', tick0=1, dtick=1,
                       range=c(1,12), fixedrange = TRUE),
-         legend = list(title=list(text='<b> Manager </b>'))), align = 'left')
+         legend = list(orientation = 'h', y = -0.3),
+         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
 
 ```
 
