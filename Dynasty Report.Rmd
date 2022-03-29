@@ -333,8 +333,8 @@ div(pts_season %>%
          xaxis = list(title = 'Expected Wins', tick0=1, dtick=1, fixedrange = TRUE),
          yaxis = list(title = 'Actual Wins', tick0=1, dtick=1, fixedrange = TRUE),
          hovermode = 'compare',
-         legend = list(title=list(text='<b> Manager </b>'),
-                       orientation = "h", xanchor = "center", x = 0.5, y = -0.3)) %>% 
+         #legend = list(orientation = "h", xanchor = "center", x = 0.5, y = -0.3)) %>%
+         legend = list(orientation = 'h', y = -0.3)) %>%
   plotly::style(hoverinfo = 'none'), align = 'left')
   #add_text(textposition = 'top')
 
