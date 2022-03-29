@@ -323,7 +323,7 @@ Teams above the black line have been more fortunate with their schedule and team
 
 ``` {r wins vs expectation, echo = F, message = F}
 
-pts_season %>% 
+div(pts_season %>% 
   ungroup() %>% 
   plot_ly() %>% 
   add_trace(x = ~xWins, y = ~Wins, mode = 'markers', color = ~Manager, colors = 'Paired',
@@ -334,7 +334,7 @@ pts_season %>%
          yaxis = list(title = 'Actual Wins', tick0=1, dtick=1, fixedrange = TRUE),
          hovermode = 'compare',
          legend = list(title=list(text='<b> Manager </b>'))) %>% 
-  plotly::style(hoverinfo = 'none')
+  plotly::style(hoverinfo = 'none'), align = 'left')
   #add_text(textposition = 'top')
 
 ```
@@ -361,7 +361,7 @@ xWins_vs_avg <- pts_week %>%
          cum_xWins = round(cumsum(xWins), 1),
          win_diff = cum_xWins - gameweek/2)
 
-xWins_vs_avg |> 
+div(xWins_vs_avg |> 
   ungroup() |> 
   plot_ly(y = ~win_diff) |> 
   add_trace(x = ~gameweek, color = ~Manager, type = 'scatter', mode = 'lines', colors = 'Paired', text = ~Manager,
@@ -369,7 +369,7 @@ xWins_vs_avg |>
   layout(title = 'xWins vs Average over the Season',
          xaxis = list(title = 'Week',fixedrange = TRUE, tickmode = 'linear'),
          yaxis = list(title = 'xWins vs Average',  categoryorder = "array", categoryarray = ~win_diff, tick0=1, dtick=1, fixedrange = TRUE),
-         legend = list(title=list(text='<b> Manager </b>')))
+         legend = list(title=list(text='<b> Manager </b>'))), align = 'left')
 
 ```
 <br>
@@ -390,7 +390,7 @@ position <- pts_week %>%
   group_by(gameweek) %>% 
   mutate(Position = league_size + 1 - rank(csum_win + csum_pts/10000))
 
-position %>% 
+div(position %>% 
   ungroup() %>% 
   plot_ly(y = ~Position) %>% 
   add_trace(x = ~gameweek, color = ~Manager, type = 'scatter', mode = 'lines+markers', colors = 'Paired', text = ~Manager, color = ~Manager,
@@ -399,7 +399,7 @@ position %>%
          xaxis = list(title = 'Week',fixedrange = TRUE, tickmode = 'linear'),
          yaxis = list(title = 'League Position',  categoryorder = "array", categoryarray = ~Position, autorange = 'reversed', tick0=1, dtick=1,
                       range=c(1,12), fixedrange = TRUE),
-         legend = list(title=list(text='<b> Manager </b>')))
+         legend = list(title=list(text='<b> Manager </b>'))), align = 'left')
 
 ```
 
