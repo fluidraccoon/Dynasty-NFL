@@ -327,13 +327,14 @@ div(pts_season %>%
   ungroup() %>% 
   plot_ly() %>% 
   add_trace(x = ~xWins, y = ~Wins, mode = 'markers', color = ~Manager, colors = 'Paired',
-            hovertemplate = paste(pts_season$Manager, '<br> Expected Wins: %{x}', '<br> Actual Wins: %{y}', '<extra></extra>')) %>% 
+            hovertemplate = paste(pts_season$Manager, '<br>Expected Wins: %{x}', '<br>Actual Wins: %{y}', '<extra></extra>')) %>% 
   add_trace(x = seq(0, gameweek_end), y = seq(0, gameweek_end), mode = 'lines', line = list(color = 'black', width = 0.5), showlegend = F) %>% 
   layout(title = 'Wins vs Expected Wins',
          xaxis = list(title = 'Expected Wins', tick0=1, dtick=1, fixedrange = TRUE),
          yaxis = list(title = 'Actual Wins', tick0=1, dtick=1, fixedrange = TRUE),
          hovermode = 'compare',
-         legend = list(title=list(text='<b> Manager </b>'))) %>% 
+         legend = list(title=list(text='<b> Manager </b>'),
+                       orientation = "h", xanchor = "center", x = 0.5)) %>% 
   plotly::style(hoverinfo = 'none'), align = 'left')
   #add_text(textposition = 'top')
 
