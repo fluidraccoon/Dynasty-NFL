@@ -7,6 +7,7 @@ knit: (function(input_file, encoding) {
  output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
 author: "Dan Coulton"
 date: "`r Sys.Date()`"
+css: custom.css
 output:
   rmdformats::readthedown
 ---
@@ -23,6 +24,8 @@ library(plotly)
 library(formattable)
 library(rmdformats)
 library(shiny)
+library(rvest)
+library(xml2)
 
 setwd('C:/Users/danie/OneDrive/Documents/DynastyNFL/')
 taxi_squad <- readRDS('Taxi_2021.RDS') %>% 
@@ -35,10 +38,11 @@ taxi_squad <- readRDS('Taxi_2021.RDS') %>%
                                     full_name=='Elijah Moore' ~ 12,
                                     full_name=='Tee Higgins' ~ 13,
                                     T ~ 0))
-season <- 2021
+season <- 2022
+no_of_qbs <- 1
 
-#league_id <- sleeper_userleagues('DanCoulton') %>% filter(league_name == 'NFL Dynasty') %>% pull(league_id)
-league_id <- 659068468825530368
+league_id <- sleeper_userleagues('DanCoulton') %>% filter(league_name == 'NFL Dynasty') %>% pull(league_id)
+# league_id <- 659068468825530368
 dynasty_conn <- sleeper_connect(season = season, league_id = league_id)
 
 ff_league <- ff_league(dynasty_conn)
@@ -73,14 +77,169 @@ remove(df,datalist,i, json_players_parsed)
 
 ```
 
+``` {r KTC dynasty, echo = F}
+
+KTC_dynasty_url <- read_html(paste0('https://keeptradecut.com/dynasty-rankings?page=0&filters=QB|WR|RB|TE|RDP&format=', no_of_qbs))
+
+KTC = list()
+KTC$Tier <- KTC_dynasty_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[4]/p') %>% html_text
+KTC$Player <- KTC_dynasty_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[2]/p/a') %>% html_text
+KTC$Value <- KTC_dynasty_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[6]/p') %>% html_text
+KTC$Info <- KTC_dynasty_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[8]/div[4]/p[1]') %>% html_text %>% 
+  gsub('\t', '', .) %>% gsub('\n', '', .) %>% gsub('\r', '', .)
+
+df_KTC <- bind_cols(KTC) %>% 
+  rowwise() %>% 
+  mutate(Position = strsplit(Info, ' ')[[1]][1],
+         Team = strsplit(Info, ' ')[[1]][3],
+         Value = as.numeric(Value)) %>% 
+  select(-Info) %>% 
+  ungroup()
+
+df_KTC_join <- df_KTC %>% 
+  filter(Position != 'RDP') %>% 
+  mutate(Team = case_when(Team=='KCC' ~ 'KC',
+                          Team=='JAC' ~ 'JAX',
+                          Team=='SFO' ~ 'SF',
+                          Team=='LVR' ~ 'LV',
+                          Team=='NOS' ~ 'NO',
+                          Team=='GBP' ~ 'GB',
+                          Team=='TBB' ~ 'TB',
+                          Team=='NEP' ~ 'NE',
+                          Team=='FA' ~ NA_character_,
+                          T ~ Team),
+         Team = case_when(Player=='Will Fuller' ~ NA_character_,
+                          Player=='Rob Gronkowski' ~ NA_character_,
+                          Player=='Justin Jackson' ~ NA_character_,
+                          Player=='Jerick McKinnon' ~ NA_character_,
+                          Player=="Ty'Son Williams" ~ 'BAL',
+                          Player=="Lil'Jordan Humphrey" ~ NA_character_,
+                          Player=='Xavier Jones' ~ NA_character_,
+                          Player=='Chris Herndon' ~ NA_character_,
+                          Player=='Adam Humphries' ~ NA_character_,
+                          Player=='T.Y. Hilton' ~ NA_character_,
+                          Player=='Jordan Howard' ~ NA_character_,
+                          Player=='Alex Collins' ~ NA_character_,
+                          Player=='Phillip Lindsay' ~ 'MIA',
+                          Player=='Wayne Gallman' ~ NA_character_,
+                          Player=='Latavius Murray' ~ NA_character_,
+                          Player=='Devonta Freeman' ~ NA_character_,
+                          T ~ Team),
+         Player = str_remove(Player, c(' Jr.')),
+         Player = str_remove(Player, c(' III')),
+         Player = str_remove(Player, c(' II')),
+         Player = str_remove(Player, c(' IV')),
+         Player = case_when(Player=='D.J. Moore' ~ 'DJ Moore',
+                            Player=='Kenneth Walker' ~ 'Ken Walker',
+                            Player=='Mitchell Trubisky' ~ 'Mitch Trubisky',
+                            Player=='Josh Palmer' ~ 'Joshua Palmer',
+                            Player=='D.J. Chark' ~ 'DJ Chark',
+                            Player=='Will Fuller' ~ 'William Fuller',
+                            Player=='Robby Anderson' ~ 'Robbie Anderson',
+                            Player=='Jeffery Wilson' ~ 'Jeff Wilson',
+                            Player=="D'Wayne Eskridge" ~ 'Dee Eskridge',
+                            Player=='Olabisi Johnson' ~ 'Bisi Johnson',
+                            Player=='Lamical Perine' ~ "La'Mical Perine",
+                            T ~ Player)) %>% 
+  left_join(player_data[,c('full_name','team','position','player_id')], by=c('Player'='full_name', 'Position'='position', 'Team'='team'))
+
+# df_KTC_join %>% 
+  # filter(is.na(player_id))
+
+```
+
+
+``` {r KTC fantasy, echo = F}
+
+KTC_fantasy_url <- read_html(paste0('https://keeptradecut.com/fantasy-rankings?page=0&filters=QB|WR|RB|TE&format=', no_of_qbs))
+
+KTC_fantasy = list()
+KTC_fantasy$Tier <- KTC_fantasy_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[4]/p') %>% html_text
+KTC_fantasy$Player <- KTC_fantasy_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[2]/p/a') %>% html_text
+KTC_fantasy$Value <- KTC_fantasy_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[6]/p') %>% html_text
+KTC_fantasy$Info <- KTC_fantasy_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[8]/div[4]/p[1]') %>% html_text %>% 
+  gsub('\t', '', .) %>% gsub('\n', '', .) %>% gsub('\r', '', .)
+
+df_KTC_fantasy <- bind_cols(KTC_fantasy) %>% 
+  rowwise() %>% 
+  mutate(Position = strsplit(Info, ' ')[[1]][1],
+         Team = strsplit(Info, ' ')[[1]][3],
+         Value = as.numeric(Value)) %>% 
+  select(-Info) %>% 
+  ungroup()
+
+df_KTC_fantasy_join <- df_KTC_fantasy %>% 
+  filter(Position != 'RDP') %>% 
+  mutate(Team = case_when(Team=='KCC' ~ 'KC',
+                          Team=='JAC' ~ 'JAX',
+                          Team=='SFO' ~ 'SF',
+                          Team=='LVR' ~ 'LV',
+                          Team=='NOS' ~ 'NO',
+                          Team=='GBP' ~ 'GB',
+                          Team=='TBB' ~ 'TB',
+                          Team=='NEP' ~ 'NE',
+                          Team=='FA' ~ NA_character_,
+                          T ~ Team),
+         Team = case_when(Player=='Will Fuller' ~ NA_character_,
+                          Player=='Rob Gronkowski' ~ NA_character_,
+                          Player=='Justin Jackson' ~ NA_character_,
+                          Player=='Jerick McKinnon' ~ NA_character_,
+                          Player=="Ty'Son Williams" ~ 'BAL',
+                          Player=="Lil'Jordan Humphrey" ~ NA_character_,
+                          Player=='Xavier Jones' ~ NA_character_,
+                          Player=='Chris Herndon' ~ NA_character_,
+                          Player=='Adam Humphries' ~ NA_character_,
+                          Player=='T.Y. Hilton' ~ NA_character_,
+                          Player=='Jordan Howard' ~ NA_character_,
+                          Player=='Alex Collins' ~ NA_character_,
+                          Player=='Phillip Lindsay' ~ 'MIA',
+                          Player=='Wayne Gallman' ~ NA_character_,
+                          Player=='Latavius Murray' ~ NA_character_,
+                          Player=='Devonta Freeman' ~ NA_character_,
+                          T ~ Team),
+         Player = str_remove(Player, c(' Jr.')),
+         Player = str_remove(Player, c(' III')),
+         Player = str_remove(Player, c(' II')),
+         Player = str_remove(Player, c(' IV')),
+         Player = case_when(Player=='D.J. Moore' ~ 'DJ Moore',
+                            Player=='Kenneth Walker' ~ 'Ken Walker',
+                            Player=='Mitchell Trubisky' ~ 'Mitch Trubisky',
+                            Player=='Josh Palmer' ~ 'Joshua Palmer',
+                            Player=='D.J. Chark' ~ 'DJ Chark',
+                            Player=='Will Fuller' ~ 'William Fuller',
+                            Player=='Robby Anderson' ~ 'Robbie Anderson',
+                            Player=='Jeffery Wilson' ~ 'Jeff Wilson',
+                            Player=="D'Wayne Eskridge" ~ 'Dee Eskridge',
+                            Player=='Olabisi Johnson' ~ 'Bisi Johnson',
+                            Player=='Lamical Perine' ~ "La'Mical Perine",
+                            T ~ Player)) %>% 
+  left_join(player_data[,c('full_name','team','position','player_id')], by=c('Player'='full_name', 'Position'='position', 'Team'='team'))
+
+```
+
+
 ```{r user info, include = F, message = F}
 
 rostersRaw <- GET(paste("https://api.sleeper.app/v1/league/",league_id,"/rosters",sep=""))
 rostersParsed <- content(rostersRaw,as="parsed")
-
-########### User Info ###########
 usersRaw <- fromJSON(paste("https://api.sleeper.app/v1/league/",league_id,"/users",sep=""), flatten = TRUE)
 
+datalist = list()
+for (i in 1:league_size) {
+  df<-data.frame(t(unlist(rostersParsed[i]))) %>%
+    select(roster_id, owner_id, starts_with('players')) %>%
+    pivot_longer(cols = starts_with('player'), names_to = 'player_no', values_to = 'player_id') %>%
+    left_join(player_data[, c('full_name', 'position', 'player_id', 'team')], by = 'player_id')
+  
+  datalist[[i]] <- df
+}
+rosters <- data.frame(bind_rows(datalist)) %>% 
+  left_join(usersRaw[, c('user_id', 'display_name', 'metadata.team_name')], by = c('owner_id' = 'user_id')) %>% 
+  rename(Manager = display_name)
+rm(datalist)
+
+
+########### User Info ###########
 datalist = list()
 for (i in 1:league_size) {
   df<-data.frame(t(unlist(rostersParsed[i]))) %>%
@@ -621,6 +780,80 @@ rm(projected_draft_table)
 ```
 
 <br>
+
+# Roster Comparison
+
+### Dynasty
+
+The value of each roster has been calculated using crowdsourced values from [KeepTradeCut](https://keeptradecut.com/dynasty-rankings). A value is calculated for each player and these are totaled.
+
+``` {r roster comparison dynasty, echo = F, message = F}
+
+dynasty_roster_value <- rosters %>% 
+  left_join(df_KTC_join[, c('player_id', 'Value', 'Position')], by = 'player_id') %>% 
+  filter(!is.na(Value)) %>%
+  group_by(Manager) %>%
+  summarise(Value = sum(Value, na.rm = T)) %>% 
+  arrange(desc(Value)) %>% 
+  ungroup() %>% 
+  mutate(Value_Std = round(Value/max(Value)*100, 1))
+  
+dynasty_roster_value_pos <- rosters %>% 
+  left_join(df_KTC_join[, c('player_id', 'Value', 'Position')], by = 'player_id') %>% 
+  filter(!is.na(Value)) %>% 
+  mutate(Position = factor(Position, levels = c('TE', 'WR', 'RB', 'QB'))) %>% 
+  group_by(Manager, Position) %>%
+  summarise(Value = round(sum(Value, na.rm = T)/max(dynasty_roster_value$Value)*100, 1)) %>% 
+  arrange(desc(Value)) %>% 
+  ungroup()
+
+div(dynasty_roster_value_pos %>% 
+  plot_ly(y = ~Value) %>% 
+  add_trace(x = ~Manager, type = 'bar', color = ~Position) %>% 
+  layout(barmode = 'stack',
+         title = 'Dynasty Value of Each Team by Position Group',
+         xaxis = list(title = 'Team', categoryorder = "array", categoryarray = ~dynasty_roster_value$Manager, fixedrange = TRUE),
+         yaxis = list(title = 'Dynasty Value', fixedrange = TRUE),
+         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
+
+
+```
+
+### Contender
+
+The following chart uses a similar concept, but looks at the value of the squad for this season. The chart above will take into account the long term value of a player, whereas this chart purely looks at squad value for the remainder of this season. Any injuries will affect the value and immediate competitiveness of each team.
+
+``` {r roster comparison fantasy, echo = F, message = F}
+
+fantasy_roster_value <- rosters %>% 
+  left_join(df_KTC_fantasy_join[, c('player_id', 'Value', 'Position')], by = 'player_id') %>% 
+  filter(!is.na(Value)) %>%
+  group_by(Manager) %>%
+  summarise(Value = sum(Value, na.rm = T)) %>% 
+  arrange(desc(Value)) %>% 
+  ungroup() %>% 
+  mutate(Value_Std = round(Value/max(Value)*100, 1))
+  
+fantasy_roster_value_pos <- rosters %>% 
+  left_join(df_KTC_fantasy_join[, c('player_id', 'Value', 'Position')], by = 'player_id') %>% 
+  filter(!is.na(Value)) %>% 
+  mutate(Position = factor(Position, levels = c('TE', 'WR', 'RB', 'QB'))) %>% 
+  group_by(Manager, Position) %>%
+  summarise(Value = round(sum(Value, na.rm = T)/max(fantasy_roster_value$Value)*100, 1)) %>% 
+  arrange(desc(Value)) %>% 
+  ungroup()
+
+div(fantasy_roster_value_pos %>% 
+  plot_ly(y = ~Value) %>% 
+  add_trace(x = ~Manager, type = 'bar', color = ~Position) %>% 
+  layout(barmode = 'stack',
+         title = 'Immediate Value of Each Team by Position Group',
+         xaxis = list(title = 'Team', categoryorder = "array", categoryarray = ~fantasy_roster_value$Manager, fixedrange = TRUE),
+         yaxis = list(title = 'Immediate Value', fixedrange = TRUE),
+         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
+
+
+```
 
 # 2021 Trade Count
 
