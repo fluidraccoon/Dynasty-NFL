@@ -26,6 +26,7 @@ library(rmdformats)
 library(shiny)
 library(rvest)
 library(xml2)
+library(lubridate)
 
 setwd('C:/Users/danie/OneDrive/Documents/DynastyNFL/')
 taxi_squad <- readRDS('Taxi_2021.RDS') %>% 
@@ -57,6 +58,8 @@ draft_rounds <- 4
 ### In the pipeline ###
 # Next week preview
 # Add draft pick range
+# Add league history
+# Add trade history
 
 ```
 
@@ -97,7 +100,7 @@ df_KTC <- bind_cols(KTC) %>%
   ungroup()
 
 df_KTC_join <- df_KTC %>% 
-  filter(Position != 'RDP') %>% 
+  #filter(Position != 'RDP') %>% 
   mutate(Team = case_when(Team=='KCC' ~ 'KC',
                           Team=='JAC' ~ 'JAX',
                           Team=='SFO' ~ 'SF',
@@ -228,15 +231,20 @@ datalist = list()
 for (i in 1:league_size) {
   df<-data.frame(t(unlist(rostersParsed[i]))) %>%
     select(roster_id, owner_id, starts_with('players')) %>%
-    pivot_longer(cols = starts_with('player'), names_to = 'player_no', values_to = 'player_id') %>%
+    mutate(pick1 = paste0(season+1, ' Mid 1st'), pick2 = paste0(season+1, ' Mid 2nd'), pick3 = paste0(season+1, ' Mid 3rd'),
+           pick4 = paste0(season+1, ' Mid 4th'), pick5 = paste0(season+2, ' Mid 1st'), pick6 = paste0(season+2, ' Mid 2nd'),
+           pick7 = paste0(season+2, ' Mid 3rd'), pick8 = paste0(season+2, ' Mid 4th')) %>% 
+    pivot_longer(cols = starts_with(c('player', 'pick')), names_to = 'player_no', values_to = 'player_id') %>%
     left_join(player_data[, c('full_name', 'position', 'player_id', 'team')], by = 'player_id')
   
   datalist[[i]] <- df
 }
 rosters <- data.frame(bind_rows(datalist)) %>% 
+  mutate(full_name = if_else(is.na(full_name), player_id, full_name)) %>% 
   left_join(usersRaw[, c('user_id', 'display_name', 'metadata.team_name')], by = c('owner_id' = 'user_id')) %>% 
   rename(Manager = display_name)
 rm(datalist)
+
 
 
 ########### User Info ###########
@@ -703,7 +711,10 @@ for (i in 1:length(picksParsed)) {
   
   datalist_picks[[i]] <- df
 }
-traded_picks <- bind_rows(datalist_picks)
+traded_picks <- bind_rows(datalist_picks) %>% 
+  mutate(pick_name = paste0(season, ' Mid ', round, if_else(round=='1', 'st',
+                                                            if_else(round=='2', 'nd',
+                                                                    if_else(round=='3', 'rd', 'th')))))
 rm(picksParsed, picksRaw, i, datalist_picks)
 
 projected_draft <- pp_season %>% 
@@ -804,14 +815,26 @@ rm(projected_draft_table)
 
 # Roster Comparison
 
-### Dynasty
+## Dynasty
 
 The value of each roster has been calculated using crowdsourced values from [KeepTradeCut](https://keeptradecut.com/dynasty-rankings). A value is calculated for each player and these are totaled.
 
+Draft picks for the next 2 years are also included in the estimate, but given how difficult it is to value future picks, these have been assumed to fall in the middle of the given round.
+
 ``` {r roster comparison dynasty, echo = F, message = F}
 
+rosters <- rosters %>% 
+  left_join(traded_picks[, c('owner_id', 'roster_id', 'pick_name')], by = c('roster_id', 'full_name' = 'pick_name'), suffix = c('', '.new')) %>% 
+  mutate(owner_id.new = if_else(is.na(owner_id.new), roster_id, owner_id.new),
+         position = if_else(str_detect(player_no, 'pick'), 'Draft', position)) %>% 
+  left_join(df_KTC_join[, c('player_id', 'Value')], by = 'player_id') %>%
+  left_join(df_KTC_join[, c('Player', 'Value')], by = c('player_id' = 'Player'), suffix = c('', '.draft')) %>% 
+  mutate(Value = if_else(is.na(Value), Value.draft, Value)) %>% 
+  left_join(user_info[, c('roster_id', 'Manager')], by = c('owner_id.new' = 'roster_id'), suffix = c('', '.new')) %>% 
+  mutate(Manager = Manager.new) %>% 
+  select(-Value.draft, -Manager.new)
+  
 dynasty_roster_value <- rosters %>% 
-  left_join(df_KTC_join[, c('player_id', 'Value', 'Position')], by = 'player_id') %>% 
   filter(!is.na(Value)) %>%
   group_by(Manager) %>%
   summarise(Value = sum(Value, na.rm = T)) %>% 
@@ -820,19 +843,19 @@ dynasty_roster_value <- rosters %>%
   mutate(Value_Std = round(Value/max(Value)*100, 1))
   
 dynasty_roster_value_pos <- rosters %>% 
-  left_join(df_KTC_join[, c('player_id', 'Value', 'Position')], by = 'player_id') %>% 
   filter(!is.na(Value)) %>% 
-  mutate(Position = factor(Position, levels = c('TE', 'WR', 'RB', 'QB'))) %>% 
-  group_by(Manager, Position) %>%
+  mutate(position = factor(position, levels = c('TE', 'WR', 'RB', 'QB', 'Draft'))) %>% 
+  group_by(Manager, position) %>%
   summarise(Value = round(sum(Value, na.rm = T)/max(dynasty_roster_value$Value)*100, 1)) %>% 
   arrange(desc(Value)) %>% 
   ungroup()
 
 div(dynasty_roster_value_pos %>% 
   plot_ly(y = ~Value) %>% 
-  add_trace(x = ~Manager, type = 'bar', color = ~Position) %>% 
+  add_trace(x = ~Manager, type = 'bar', color = ~position) %>% 
   layout(barmode = 'stack',
          title = 'Dynasty Value of Each Team by Position Group',
+         hovermode = 'compare',
          xaxis = list(title = 'Team', categoryorder = "array", categoryarray = ~dynasty_roster_value$Manager, fixedrange = TRUE),
          yaxis = list(title = 'Dynasty Value', fixedrange = TRUE),
          paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
@@ -840,39 +863,63 @@ div(dynasty_roster_value_pos %>%
 
 ```
 
-### Contender
+## Contender
 
 The following chart uses a similar concept, but looks at the value of the squad for this season. The chart above will take into account the long term value of a player, whereas this chart purely looks at squad value for the remainder of this season. Any injuries will affect the value and immediate competitiveness of each team.
 
 ``` {r roster comparison fantasy, echo = F, message = F}
 
+rosters <- rosters %>% 
+  left_join(df_KTC_fantasy_join[, c('player_id', 'Value')], by = 'player_id', suffix = c('', '.contender')) 
+  
 fantasy_roster_value <- rosters %>% 
-  left_join(df_KTC_fantasy_join[, c('player_id', 'Value', 'Position')], by = 'player_id') %>% 
-  filter(!is.na(Value)) %>%
+  filter(!is.na(Value.contender)) %>%
   group_by(Manager) %>%
-  summarise(Value = sum(Value, na.rm = T)) %>% 
+  summarise(Value = sum(Value.contender, na.rm = T)) %>% 
   arrange(desc(Value)) %>% 
   ungroup() %>% 
   mutate(Value_Std = round(Value/max(Value)*100, 1))
   
 fantasy_roster_value_pos <- rosters %>% 
-  left_join(df_KTC_fantasy_join[, c('player_id', 'Value', 'Position')], by = 'player_id') %>% 
-  filter(!is.na(Value)) %>% 
-  mutate(Position = factor(Position, levels = c('TE', 'WR', 'RB', 'QB'))) %>% 
-  group_by(Manager, Position) %>%
-  summarise(Value = round(sum(Value, na.rm = T)/max(fantasy_roster_value$Value)*100, 1)) %>% 
+  filter(!is.na(Value.contender)) %>% 
+  mutate(position = factor(position, levels = c('TE', 'WR', 'RB', 'QB'))) %>% 
+  group_by(Manager, position) %>%
+  summarise(Value = round(sum(Value.contender, na.rm = T)/max(fantasy_roster_value$Value)*100, 1)) %>% 
   arrange(desc(Value)) %>% 
   ungroup()
 
 div(fantasy_roster_value_pos %>% 
   plot_ly(y = ~Value) %>% 
-  add_trace(x = ~Manager, type = 'bar', color = ~Position) %>% 
+  add_trace(x = ~Manager, type = 'bar', color = ~position) %>% 
   layout(barmode = 'stack',
          title = 'Immediate Value of Each Team by Position Group',
+         hovermode = 'compare',
          xaxis = list(title = 'Team', categoryorder = "array", categoryarray = ~fantasy_roster_value$Manager, fixedrange = TRUE),
          yaxis = list(title = 'Immediate Value', fixedrange = TRUE),
          paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
 
+
+```
+
+## Roster Maturity
+
+This chart shows the spread of ages on each roster within the league. The narrower the box, the more concentrated the ages are, and the larger boxes will have a wide spread of ages.
+
+``` {r roster age comparison, echo = F, message = F, warning = F}
+
+roster_age <- rosters %>% tibble() %>% 
+  left_join(player_data[, c('birth_date', 'player_id')], by = 'player_id') %>%
+  mutate(birth_date = as.Date(birth_date),
+         age = interval(birth_date, Sys.Date()) / years(1))
+
+mean_roster_age <- roster_age %>% group_by(Manager) %>% summarise(mean = mean(age, na.rm = T)) %>% arrange(desc(mean))
+
+div(roster_age %>% 
+  plot_ly(y=~age, color=~Manager, type='box', boxmean = T, hoverinfo='none') %>% 
+  layout(title = 'Boxplot of Player Age by Team',
+         xaxis = list(title = 'Team', categoryorder = "array", categoryarray = ~mean_roster_age$Manager, fixedrange = TRUE),
+         yaxis = list(title = 'Player Age', fixedrange = TRUE),
+         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
 
 ```
 
