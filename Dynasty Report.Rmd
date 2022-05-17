@@ -1,5 +1,5 @@
 ---
-title: "NFL Dynasty Report - Week 14"
+title: "2022 NFL Dynasty Report - Week 14"
 knit: (function(input_file, encoding) {
   out_dir <- 'docs';
   rmarkdown::render(input_file,
@@ -323,6 +323,7 @@ matchup_id <- matchup_data %>%
 
 ```{r get historic scores, include = F, message = F}
 
+league_id2021 <- '659068468825530368'
 league_id2020 <- '524711968751366144'
 league_id2019 <- '401733459510312960'
 
@@ -366,6 +367,25 @@ matchup_data2020 <-bind_rows(datalist_gameweek) %>%
 
 ### 2021 ###
 datalist_gameweek = list()
+for (i in gameweek_start:17) {
+  matchupRaw <- GET(paste('https://api.sleeper.app/v1/league/',league_id2021,'/matchups/', i, sep=""))
+  matchupParsed <- content(matchupRaw, as="parsed")
+
+  datalist_matchup = list()
+  for (j in 1:league_size) {
+    df <- data.frame(t(unlist(matchupParsed[j]))) %>%
+      select(roster_id, points)
+
+    datalist_matchup[[j]] <- df
+  }
+  datalist_gameweek[[i]] <-bind_rows(datalist_matchup) %>%
+    mutate(gameweek = i)
+}
+matchup_data2021 <-bind_rows(datalist_gameweek) %>%
+  mutate(season = 2021)
+
+### 2022 ###
+datalist_gameweek = list()
 for (i in gameweek_start:gameweek_end) {
   matchupRaw <- GET(paste('https://api.sleeper.app/v1/league/',league_id,'/matchups/', i, sep=""))
   matchupParsed <- content(matchupRaw, as="parsed")
@@ -380,14 +400,16 @@ for (i in gameweek_start:gameweek_end) {
   datalist_gameweek[[i]] <-bind_rows(datalist_matchup) %>% 
     mutate(gameweek = i)
 }
-matchup_data2021 <-bind_rows(datalist_gameweek) %>% 
-  mutate(season = 2021) %>% 
+matchup_data2022 <-bind_rows(datalist_gameweek) %>% 
+  mutate(season = 2022) %>% 
   filter(gameweek<gameweek_end)
 
-score_data_historic <- bind_rows(matchup_data2019, matchup_data2020, matchup_data2021)
-rm(matchup_data2019, matchup_data2020, matchup_data2021, datalist_gameweek, datalist_matchup)
+score_data_historic <- bind_rows(matchup_data2019, matchup_data2020, matchup_data2021, matchup_data2022)
+rm(matchup_data2019, matchup_data2020, matchup_data2021, matchup_data2022, datalist_gameweek, datalist_matchup)
 
 ```
+
+---
 
 # Playoff Hunt
 
@@ -503,7 +525,7 @@ div(pts_season %>%
 
 `r pts_season %>% filter(WOE == min(WOE)) %>% pull(Manager)` can feel hard done by, with `r pts_season %>% filter(WOE == min(WOE)) %>% mutate(WOE = -WOE) %>% pull(WOE) %>% nth(1)` fewer wins than expected.
 
-<br>
+---
 
 # Story of the Season
 
@@ -533,7 +555,8 @@ div(xWins_vs_avg |>
          paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
 
 ```
-<br>
+
+---
 
 # League Position Tracker
 
@@ -564,8 +587,6 @@ div(position %>%
          paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
 
 ```
-
-<br>
 
 ```{r calculate potential points, include = F}
 
@@ -633,6 +654,8 @@ pp_weekly_matchup <- pp_week %>%
 
 ```
 
+---
+
 # Potential Points
 
 The following table shows the potential points that could have been scored if the perfect squad had been played. The wins column shows how many wins each manager would have if every team played their perfect selection each week.
@@ -667,7 +690,6 @@ pp_weekly_matchup %>%
 rm(myHeader, myHeader_init)
 
 ```
-<br>
 
 ``` {r projected draft picks, echo = F}
 
@@ -703,6 +725,9 @@ projected_draft <- pp_season %>%
   select(Round, Pick, Owner, `Original Owner`)
 
 ```
+
+---
+
 # Projected Draft Picks {.tabset .tabset-fade}
 
 The `r draft_rounds` rounds of the `r (season+1)` rookie draft are shown below, using the potential points order as at today.
@@ -724,8 +749,6 @@ projected_draft_table %>%
 
 ```
 
-<br>
-
 ## Round 2
 ``` {r round2, echo=F}
 
@@ -741,8 +764,6 @@ projected_draft_table %>%
   row_spec(which(projected_draft_table$`Original Owner`!=''), bold = T, color = "white", background = "#feb9b9")
 
 ```
-
-<br>
 
 ## Round 3
 ``` {r round3, echo=F}
@@ -760,8 +781,6 @@ projected_draft_table %>%
 
 ```
 
-<br>
-
 ## Round 4
 ``` {r round4, echo=F}
 
@@ -776,10 +795,12 @@ projected_draft_table %>%
                 position = 'left') %>% 
   row_spec(which(projected_draft_table$`Original Owner`!=''), bold = T, color = "white", background = "#feb9b9")
 rm(projected_draft_table)
-## {-}
+
 ```
 
-<br>
+## {-}
+
+---
 
 # Roster Comparison
 
@@ -855,7 +876,9 @@ div(fantasy_roster_value_pos %>%
 
 ```
 
-# 2021 Trade Count
+---
+
+# 2022 Trades
 
 ```{r trades, echo=F}
 
@@ -873,7 +896,7 @@ div(transactions %>%
   arrange(desc(Trade_Count)) %>% 
   plot_ly(y = ~Trade_Count) %>% 
   add_trace(x = ~Manager, type = 'bar') %>% 
-  layout(title = ' Number of 2021 Trades by Team',
+  layout(title = ' Number of 2022 Trades by Team',
          xaxis = list(title = 'Team', categoryorder = "array", categoryarray = ~Trade_Count, fixedrange = TRUE),
          yaxis = list(title = 'Number of Trades', fixedrange = TRUE),
          paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
