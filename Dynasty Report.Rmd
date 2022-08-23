@@ -1,5 +1,5 @@
 ---
-title: "2022 NFL Dynasty Report - Week 14"
+title: "2022 NFL Dynasty Report - Week 1"
 knit: (function(input_file, encoding) {
   out_dir <- 'docs';
   rmarkdown::render(input_file,
@@ -29,31 +29,21 @@ library(xml2)
 library(lubridate)
 
 setwd('C:/Users/danie/OneDrive/Documents/DynastyNFL/')
-taxi_squad <- readRDS('Taxi_2021.RDS') %>% 
-  mutate(week_activated = case_when(full_name=='Michael Carter' ~ 3,
-                                    full_name=='Chuba Hubbard' ~ 4,
-                                    full_name=='Khalil Herbert' ~ 6,
-                                    full_name=='Mac Jones' ~ 9,
-                                    full_name=="D'Wayne Eskridge" ~ 10,
-                                    full_name=='Elijah Mitchell' ~ 10,
-                                    full_name=='Elijah Moore' ~ 12,
-                                    full_name=='Tee Higgins' ~ 13,
-                                    T ~ 0))
+
 season <- 2022
 no_of_qbs <- 1
 
 league_id <- sleeper_userleagues('DanCoulton') %>% filter(league_name == 'NFL Dynasty') %>% pull(league_id)
-# league_id <- 659068468825530368
+# league_id <- 659068468825530368 # 2021 league id
 dynasty_conn <- sleeper_connect(season = season, league_id = league_id)
 
 ff_league <- ff_league(dynasty_conn)
 
 gameweek_start <- 1
-gameweek_end <- 14
+gameweek_end <- 1
 league_size <- as.numeric(ff_league$franchise_count)
 sims <- 100
 draft_rounds <- 4
-# add Matt Breida to Joe's week 10 (16.5 points)
 
 ### In the pipeline ###
 # Next week preview
@@ -64,7 +54,6 @@ draft_rounds <- 4
 ```
 
 ```{r get players, include = F, message = F}
-# title: "NFL Dynasty Report - Week `r gameweek_end` Recap"
 
 if(!exists('get_players')) {get_players <- GET('https://api.sleeper.app/v1/players/nfl')}
 json_players_parsed <- content(get_players,as='parsed')
@@ -80,7 +69,7 @@ remove(df,datalist,i, json_players_parsed)
 
 ```
 
-``` {r KTC dynasty, echo = F}
+```{r KTC dynasty, echo = F}
 
 KTC_dynasty_url <- read_html(paste0('https://keeptradecut.com/dynasty-rankings?page=0&filters=QB|WR|RB|TE|RDP&format=', no_of_qbs))
 
@@ -113,27 +102,27 @@ df_KTC_join <- df_KTC %>%
                           T ~ Team),
          Team = case_when(Player=='Will Fuller' ~ NA_character_,
                           Player=='Rob Gronkowski' ~ NA_character_,
-                          Player=='Justin Jackson' ~ NA_character_,
-                          Player=='Jerick McKinnon' ~ NA_character_,
-                          Player=="Ty'Son Williams" ~ 'BAL',
-                          Player=="Lil'Jordan Humphrey" ~ NA_character_,
                           Player=='Xavier Jones' ~ NA_character_,
                           Player=='Chris Herndon' ~ NA_character_,
                           Player=='Adam Humphries' ~ NA_character_,
                           Player=='T.Y. Hilton' ~ NA_character_,
                           Player=='Jordan Howard' ~ NA_character_,
                           Player=='Alex Collins' ~ NA_character_,
-                          Player=='Phillip Lindsay' ~ 'MIA',
                           Player=='Wayne Gallman' ~ NA_character_,
                           Player=='Latavius Murray' ~ NA_character_,
                           Player=='Devonta Freeman' ~ NA_character_,
+                          Player=='Kenyan Drake' ~ NA_character_,
+                          Player=='Kelvin Harmon' ~ NA_character_,
+                          Player=='CJ Verdell' ~ NA_character_,
+                          Player=='Emmanuel Sanders' ~ NA_character_,
+                          Player=='Kyle Phillips' ~ 'TEN',
                           T ~ Team),
          Player = str_remove(Player, c(' Jr.')),
          Player = str_remove(Player, c(' III')),
          Player = str_remove(Player, c(' II')),
          Player = str_remove(Player, c(' IV')),
          Player = case_when(Player=='D.J. Moore' ~ 'DJ Moore',
-                            Player=='Kenneth Walker' ~ 'Ken Walker',
+                            Player=='Gabriel Davis' ~ 'Gabe Davis',
                             Player=='Mitchell Trubisky' ~ 'Mitch Trubisky',
                             Player=='Josh Palmer' ~ 'Joshua Palmer',
                             Player=='D.J. Chark' ~ 'DJ Chark',
@@ -142,17 +131,18 @@ df_KTC_join <- df_KTC %>%
                             Player=='Jeffery Wilson' ~ 'Jeff Wilson',
                             Player=="D'Wayne Eskridge" ~ 'Dee Eskridge',
                             Player=='Olabisi Johnson' ~ 'Bisi Johnson',
+                            Player=='Kyle Phillips' ~ 'Kyle Philips',
                             Player=='Lamical Perine' ~ "La'Mical Perine",
                             T ~ Player)) %>% 
   left_join(player_data[,c('full_name','team','position','player_id')], by=c('Player'='full_name', 'Position'='position', 'Team'='team'))
 
 # df_KTC_join %>% 
-  # filter(is.na(player_id))
+#   filter(is.na(player_id)) %>% 
+#   print(n=100)
 
 ```
 
-
-``` {r KTC fantasy, echo = F}
+```{r KTC fantasy, echo = F}
 
 KTC_fantasy_url <- read_html(paste0('https://keeptradecut.com/fantasy-rankings?page=0&filters=QB|WR|RB|TE&format=', no_of_qbs))
 
@@ -185,27 +175,27 @@ df_KTC_fantasy_join <- df_KTC_fantasy %>%
                           T ~ Team),
          Team = case_when(Player=='Will Fuller' ~ NA_character_,
                           Player=='Rob Gronkowski' ~ NA_character_,
-                          Player=='Justin Jackson' ~ NA_character_,
-                          Player=='Jerick McKinnon' ~ NA_character_,
-                          Player=="Ty'Son Williams" ~ 'BAL',
-                          Player=="Lil'Jordan Humphrey" ~ NA_character_,
                           Player=='Xavier Jones' ~ NA_character_,
                           Player=='Chris Herndon' ~ NA_character_,
                           Player=='Adam Humphries' ~ NA_character_,
                           Player=='T.Y. Hilton' ~ NA_character_,
                           Player=='Jordan Howard' ~ NA_character_,
                           Player=='Alex Collins' ~ NA_character_,
-                          Player=='Phillip Lindsay' ~ 'MIA',
                           Player=='Wayne Gallman' ~ NA_character_,
                           Player=='Latavius Murray' ~ NA_character_,
                           Player=='Devonta Freeman' ~ NA_character_,
+                          Player=='Kenyan Drake' ~ NA_character_,
+                          Player=='Kelvin Harmon' ~ NA_character_,
+                          Player=='CJ Verdell' ~ NA_character_,
+                          Player=='Emmanuel Sanders' ~ NA_character_,
+                          Player=='Kyle Phillips' ~ 'TEN',
                           T ~ Team),
          Player = str_remove(Player, c(' Jr.')),
          Player = str_remove(Player, c(' III')),
          Player = str_remove(Player, c(' II')),
          Player = str_remove(Player, c(' IV')),
          Player = case_when(Player=='D.J. Moore' ~ 'DJ Moore',
-                            Player=='Kenneth Walker' ~ 'Ken Walker',
+                            Player=='Gabriel Davis' ~ 'Gabe Davis',
                             Player=='Mitchell Trubisky' ~ 'Mitch Trubisky',
                             Player=='Josh Palmer' ~ 'Joshua Palmer',
                             Player=='D.J. Chark' ~ 'DJ Chark',
@@ -214,12 +204,16 @@ df_KTC_fantasy_join <- df_KTC_fantasy %>%
                             Player=='Jeffery Wilson' ~ 'Jeff Wilson',
                             Player=="D'Wayne Eskridge" ~ 'Dee Eskridge',
                             Player=='Olabisi Johnson' ~ 'Bisi Johnson',
+                            Player=='Kyle Phillips' ~ 'Kyle Philips',
                             Player=='Lamical Perine' ~ "La'Mical Perine",
                             T ~ Player)) %>% 
   left_join(player_data[,c('full_name','team','position','player_id')], by=c('Player'='full_name', 'Position'='position', 'Team'='team'))
 
-```
+# df_KTC_fantasy_join %>%
+#   filter(is.na(player_id)) %>%
+#   print(n=100)
 
+```
 
 ```{r user info, include = F, message = F}
 
@@ -261,26 +255,6 @@ user_info <- data.frame(bind_rows(datalist)) %>%
 
 ```
 
-```{r taxi creation, include = F, message = F}
-### This only needs to be run if it doesn't previously exist in the setup chunk, or if players are activated from the taxi squad  ###
-
-datalist = list()
-for (i in 1:league_size) {
-  df<-data.frame(t(unlist(rostersParsed[i]))) %>%
-    select(roster_id, starts_with('taxi')) %>%
-    pivot_longer(cols = starts_with('taxi'), names_to = 'taxi_id', values_to = 'player_id') %>%
-    left_join(player_data[, c('full_name', 'position', 'player_id', 'team')], by = 'player_id') %>%
-    mutate(taxi_id = substr(taxi_id, 5, 5), week_activated = 0)
-
-  datalist[[i]] <- df
-}
-# taxi_squad <-data.frame(bind_rows(datalist))
-remove(df,datalist,i,rostersParsed,rostersRaw, usersRaw)
-
-#saveRDS(taxi_squad, 'Taxi_2021.RDS')
-
-```
-
 ```{r get matchups, include = F, message = F}
 
 datalist_gameweek = list()
@@ -314,8 +288,6 @@ matchup_data <-bind_rows(datalist_gameweek) %>%
   left_join(player_data[, c('full_name', 'position', 'player_id', 'team')], by = 'player_id') %>% 
   mutate(full_name = if_else(position=='DEF', player_id, full_name),
          starter_ind = if_else(is.na(starter_ind), 0, 1)) %>% 
-  left_join(taxi_squad[, c('player_id', 'week_activated')], by = 'player_id') %>% 
-  filter(is.na(week_activated) | (week_activated<=gameweek & week_activated>0)) %>% 
   left_join(user_info[, c('roster_id', 'Manager')], by = 'roster_id') %>% 
   rename(Points = points)
 
@@ -417,13 +389,13 @@ rm(matchup_data2019, matchup_data2020, matchup_data2021, matchup_data2022, datal
 
 ```
 
----
+------------------------------------------------------------------------
 
 # Playoff Hunt
 
 The hunt for the playoffs as it stands. All-play is the record if all teams were to play each other every week. xWins is the number of wins you would have expected so far based on the all-play record. The playoff and bye % is calculated by randomly assigning each team a weekly score (from any team) since the league began in 2019. `r as.character(sims)` different seasons have been simulated using the wins to date and the remaining fixtures for each team. Strength of roster isn't taken into account in these calculations.
 
-``` {r playoff hunt, echo = F, message = F}
+```{r playoff hunt, echo = F, message = F}
 
 pts_week <- matchup_data %>% 
   filter(starter_ind==1) %>% 
@@ -510,7 +482,7 @@ Wins over expectation (WOE) looks at the relationship between actual wins and al
 
 Teams above the black line have been more fortunate with their schedule and teams below have been unlucky with the opponents they have faced.
 
-``` {r wins vs expectation, echo = F, message = F}
+```{r wins vs expectation, echo = F, message = F}
 
 div(pts_season %>% 
   ungroup() %>% 
@@ -533,7 +505,7 @@ div(pts_season %>%
 
 `r pts_season %>% filter(WOE == min(WOE)) %>% pull(Manager)` can feel hard done by, with `r pts_season %>% filter(WOE == min(WOE)) %>% mutate(WOE = -WOE) %>% pull(WOE) %>% nth(1)` fewer wins than expected.
 
----
+------------------------------------------------------------------------
 
 # Story of the Season
 
@@ -541,7 +513,7 @@ The following chart shows the performance of each team as the season has progres
 
 For example, an increasing line in the first half of the season followed by a decreasing line over the second half would signify good performance to start the year, but a poor run to end the season.
 
-``` {r xwins vs average, echo = F, message = F}
+```{r xwins vs average, echo = F, message = F}
 
 xWins_vs_avg <- pts_week %>% 
   filter(gameweek<=gameweek_end) %>% 
@@ -564,13 +536,13 @@ div(xWins_vs_avg |>
 
 ```
 
----
+------------------------------------------------------------------------
 
 # League Position Tracker
 
 The next table tracks the league position by week for each team in the league. To isolate a single team's record, double click on the legend on the right.
 
-``` {r position chart, echo = F, message = F}
+```{r position chart, echo = F, message = F}
 
 position <- pts_week %>% 
   filter(gameweek<=gameweek_end) %>% 
@@ -662,13 +634,85 @@ pp_weekly_matchup <- pp_week %>%
 
 ```
 
----
+------------------------------------------------------------------------
+
+# Matchup Importance
+
+The following table shows the importance of the next matchup for each manager. Win shows the Playoff % if the matchup is won, and Loss shows the chances with a loss. The Current % is the playoff probability before week `r gameweek_end + 1` takes place. The size of the bar represents the importance of the matchup for each team.
+
+``` {r playoff leverage, echo = F, message = F}
+
+playoff_leverage <- sim_wins_raw %>% 
+  group_by(Manager, Upcoming) %>% 
+  summarise(Playoff = round(mean(Playoff), 3)*100) %>% 
+  pivot_wider(names_from = 'Upcoming', values_from = 'Playoff') %>% 
+  rename(Win = `1`, Loss = `0`) %>% 
+  mutate(Difference = Win - Loss) %>% 
+  arrange(desc(Difference)) %>% 
+  left_join(pts_season[, c('Manager', 'Playoff %')], by = 'Manager') %>%
+  rename(Current = `Playoff %`) %>% 
+  ungroup()
+
+div(playoff_leverage %>%
+  arrange(desc(Current)) %>% 
+  plot_ly(x = ~Manager) %>% 
+  add_trace(y = ~Loss, type = 'bar', hoverinfo = 'skip', marker = list(color = 'rgba(1,1,1, 0.0)')) %>% 
+  add_trace(y = ~Difference, marker = list(color = 'rgba(55, 128, 191, 0.7)',
+                                           line = list(color = 'rgba(55, 128, 191, 0.7)',
+                                                       width = 2)),
+            text = ~paste0('<b>', Manager, '</b><br>Win: ', Difference + Loss, '% <br>Current: ', Current, '% <br>Loss: ', Loss, '%'),
+            hovertemplate = paste('%{text}', '<extra></extra>'), textposition = 'none') %>% 
+  add_trace(y = ~Current, type = 'scatter', mode = 'markers', hoverinfo = 'skip', marker = list(size = 5,
+                                                                                                color = 'rgba(255, 182, 193, .9)')) %>% 
+  layout(title = 'Playoff Probability by Next Result',
+         xaxis = list(title = "",
+                      categoryorder = "array",
+                      categoryarray = c(~Current),
+                      fixedrange = TRUE),
+         yaxis = list(title = "",
+                      fixedrange = TRUE),
+         barmode = 'stack',
+         showlegend = FALSE,
+         hovermode = 'x',
+         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
+
+```
+<br>
+
+Using this information, we can calculate the importance of each matchup in week `r gameweek_end + 1`. The numbers shown give the average playoff leverage for each matchup.
+
+``` {r playoff leverage matchup, echo = F, message = F}
+
+matchup_imp <- matchup_id %>% 
+  filter(gameweek==gameweek_end+1) %>% 
+  left_join(user_info[, c('roster_id', 'Manager')], by = 'roster_id') %>% 
+  left_join(user_info[, c('roster_id', 'Manager')], by = c('opponent_id' = 'roster_id')) %>% 
+  mutate(roster_id  = as.numeric(roster_id)) %>% 
+  arrange(matchup_id, roster_id) %>% 
+  ungroup() %>% 
+  filter(matchup_id==lead(matchup_id)) %>% 
+  left_join(playoff_leverage[, c('Manager', 'Difference')], by =c('Manager.x' = 'Manager')) %>% 
+  left_join(playoff_leverage[, c('Manager', 'Difference')], by =c('Manager.y' = 'Manager')) %>% 
+  mutate(Mean_diff = round((Difference.x + Difference.y)/2, 1)) %>% 
+  arrange(desc(Mean_diff)) %>% 
+  select(Manager.x, Mean_diff, Manager.y)
+
+matchup_imp %>% 
+  knitr::kable(format = 'html', align = c('r', 'c', 'l'), escape = F, col.names = NULL) %>% 
+  kable_styling(bootstrap_options = c('striped', 'responsive', 'hover'),
+                full_width = F,
+                position = 'left') %>% 
+  column_spec(2, background = spec_color(matchup_imp$Mean_diff, begin = 0.2, end = 0.8, option = 'A', alpha = 0.3, direction = -1))
+
+```
+
+------------------------------------------------------------------------
 
 # Potential Points
 
 The following table shows the potential points that could have been scored if the perfect squad had been played. The wins column shows how many wins each manager would have if every team played their perfect selection each week.
 
-``` {r pp table, echo = F}
+```{r pp table, echo = F}
 
 knitr::kable(pp_season, format = 'html', align = c('c', 'l', 'c', 'c')) %>% 
   kable_styling(bootstrap_options = c('striped', 'responsive'),
@@ -699,7 +743,7 @@ rm(myHeader, myHeader_init)
 
 ```
 
-``` {r projected draft picks, echo = F}
+```{r projected draft picks, echo = F}
 
 picksRaw <- GET(paste("https://api.sleeper.app/v1/league/",league_id,"/traded_picks",sep=""))
 picksParsed <- content(picksRaw, as="parsed")
@@ -737,7 +781,7 @@ projected_draft <- pp_season %>%
 
 ```
 
----
+------------------------------------------------------------------------
 
 # Projected Draft Picks {.tabset .tabset-fade}
 
@@ -745,7 +789,7 @@ The `r draft_rounds` rounds of the `r (season+1)` rookie draft are shown below, 
 
 ## Round 1
 
-``` {r round1, echo=F}
+```{r round1, echo=F}
 
 projected_draft_table <- projected_draft %>%
   filter(Round==1)
@@ -761,7 +805,8 @@ projected_draft_table %>%
 ```
 
 ## Round 2
-``` {r round2, echo=F}
+
+```{r round2, echo=F}
 
 projected_draft_table <- projected_draft %>%
   filter(Round==2)
@@ -777,7 +822,8 @@ projected_draft_table %>%
 ```
 
 ## Round 3
-``` {r round3, echo=F}
+
+```{r round3, echo=F}
 
 projected_draft_table <- projected_draft %>%
   filter(Round==3)
@@ -793,7 +839,8 @@ projected_draft_table %>%
 ```
 
 ## Round 4
-``` {r round4, echo=F}
+
+```{r round4, echo=F}
 
 projected_draft_table <- projected_draft %>%
   filter(Round==4)
@@ -809,9 +856,9 @@ rm(projected_draft_table)
 
 ```
 
-## {-}
+##  {.unnumbered}
 
----
+------------------------------------------------------------------------
 
 # Roster Comparison
 
@@ -821,7 +868,7 @@ The value of each roster has been calculated using crowdsourced values from [Kee
 
 Draft picks for the next 2 years are also included in the estimate, but given how difficult it is to value future picks, these have been assumed to fall in the middle of the given round.
 
-``` {r roster comparison dynasty, echo = F, message = F}
+```{r roster comparison dynasty, echo = F, message = F}
 
 rosters <- rosters %>% 
   left_join(traded_picks[, c('owner_id', 'roster_id', 'pick_name')], by = c('roster_id', 'full_name' = 'pick_name'), suffix = c('', '.new')) %>% 
@@ -867,7 +914,7 @@ div(dynasty_roster_value_pos %>%
 
 The following chart uses a similar concept, but looks at the value of the squad for this season. The chart above will take into account the long term value of a player, whereas this chart purely looks at squad value for the remainder of this season. Any injuries will affect the value and immediate competitiveness of each team.
 
-``` {r roster comparison fantasy, echo = F, message = F}
+```{r roster comparison fantasy, echo = F, message = F}
 
 rosters <- rosters %>% 
   left_join(df_KTC_fantasy_join[, c('player_id', 'Value')], by = 'player_id', suffix = c('', '.contender')) 
@@ -905,7 +952,7 @@ div(fantasy_roster_value_pos %>%
 
 This chart shows the spread of ages on each roster within the league. The narrower the box, the more concentrated the ages are, and the larger boxes will have a wide spread of ages.
 
-``` {r roster age comparison, echo = F, message = F, warning = F}
+```{r roster age comparison, echo = F, message = F, warning = F}
 
 roster_age <- rosters %>% tibble() %>% 
   left_join(player_data[, c('birth_date', 'player_id')], by = 'player_id') %>%
@@ -923,7 +970,7 @@ div(roster_age %>%
 
 ```
 
----
+------------------------------------------------------------------------
 
 # 2022 Trades
 
