@@ -27,8 +27,7 @@ library(shiny)
 library(rvest)
 library(xml2)
 library(lubridate)
-
-setwd('C:/Users/danie/OneDrive/Documents/DynastyNFL/')
+library(scales)
 
 season <- 2022
 no_of_qbs <- 1
@@ -42,12 +41,12 @@ ff_league <- ff_league(dynasty_conn)
 gameweek_start <- 1
 gameweek_end <- 1
 league_size <- as.numeric(ff_league$franchise_count)
-sims <- 100
+sims <- 10000
 draft_rounds <- 4
+pp_uplift <- 1.175
 
 ### In the pipeline ###
 # Next week preview
-# Add draft pick range
 # Add league history
 # Add trade history
 
@@ -389,185 +388,6 @@ rm(matchup_data2019, matchup_data2020, matchup_data2021, matchup_data2022, datal
 
 ```
 
-------------------------------------------------------------------------
-
-# Playoff Hunt
-
-The hunt for the playoffs as it stands. All-play is the record if all teams were to play each other every week. xWins is the number of wins you would have expected so far based on the all-play record. The playoff and bye % is calculated by randomly assigning each team a weekly score (from any team) since the league began in 2019. `r as.character(sims)` different seasons have been simulated using the wins to date and the remaining fixtures for each team. Strength of roster isn't taken into account in these calculations.
-
-```{r playoff hunt, echo = F, message = F}
-
-pts_week <- matchup_data %>% 
-  filter(starter_ind==1) %>% 
-  group_by(gameweek, roster_id, Manager) %>% 
-  summarise(pts = sum(Points)) %>% 
-  left_join(matchup_id[, c('opponent_id', 'roster_id', 'gameweek')], by = c('gameweek', 'roster_id')) %>% 
-  left_join(x=., y=.[, c('gameweek', 'opponent_id', 'pts')], by = c('gameweek', 'roster_id' = 'opponent_id')) %>% 
-  rename(pts = pts.x, pts_opponent = pts.y) %>% 
-  mutate(win = if_else(pts > pts_opponent, 1,
-                       if_else(pts_opponent > pts, 0, 0.5))) %>% 
-  ungroup %>% 
-  group_by(gameweek) %>% 
-  mutate(all_play = rank(pts)-1) %>% 
-  left_join(matchup_id[, c('matchup_id', 'roster_id', 'gameweek')], by = c('roster_id', 'gameweek'))
-
-datalist_sim = list()
-for (i in 1:sims) {
-  set.seed(i)
-  gameweek_sim <- matchup_data %>%
-    select(matchup_id, gameweek) %>% 
-    distinct() %>% 
-    rowwise() %>% 
-    mutate(home_pts = sample(as.numeric(score_data_historic$points), 1, replace=F),
-           away_pts = sample(as.numeric(score_data_historic$points), 1, replace=F),
-           away_pts = if_else(home_pts==away_pts, away_pts+sample(c(-1,1), 1), away_pts))
-  
-  pts_sim <- pts_week %>% 
-    left_join(gameweek_sim, by = c('matchup_id', 'gameweek')) %>% 
-    mutate(roster_id = as.numeric(roster_id),
-           opponent_id = as.numeric(opponent_id),
-           win_sim = if_else(roster_id<opponent_id, if_else(home_pts>away_pts, 1, 0), if_else(away_pts>home_pts, 1, 0)),
-           win_sim = if_else(gameweek>gameweek_end, win_sim, win),
-           pts_sim = if_else(roster_id<opponent_id, home_pts, away_pts),
-           pts_sim = if_else(gameweek>gameweek_end, pts_sim, pts),
-           nxt_wk_win = if_else(gameweek==gameweek_end+1, win_sim, 0))
-  
-  table_sim <- pts_sim %>% 
-    group_by(Manager) %>% 
-    summarise(Wins = sum(win_sim),
-              Points = sum(pts_sim),
-              Upcoming = sum(nxt_wk_win)) %>% 
-    arrange(desc(Wins), desc(Points)) %>% 
-    mutate(Position = seq.int(nrow(.)),
-           Playoff = if_else(Position<=6, 1, 0),
-           Bye = if_else(Position<=2, 1, 0)) %>% 
-    ungroup
-  
-  datalist_sim[[i]] = table_sim
-}
-sim_wins_raw <- bind_rows(datalist_sim)
-
-sim_wins <- sim_wins_raw %>% 
-  group_by(Manager) %>% 
-  summarise(`Playoff %` = round(mean(Playoff)*100, 1),
-            `Bye %` = round(mean(Bye)*100, 1))
-rm(table_sim, i, pts_sim, gameweek_sim, datalist_sim)
-
-pts_season <- pts_week %>%
-  filter(gameweek<=gameweek_end) %>% 
-  group_by(Manager) %>% 
-  summarise(Wins = sum(win),
-            Points = sum(pts),
-            All_Play = sum(all_play)) %>% 
-  arrange(desc(Wins), desc(Points)) %>% 
-  mutate(`All-Play` = paste0(All_Play,'-', (league_size-1)*(gameweek_end-gameweek_start+1)-All_Play),
-         xWins = round(All_Play/(league_size-1), 1),
-         WOE = Wins - xWins,
-         Position = league_size + 1 - rank(Wins + Points/10000)) %>% 
-  left_join(sim_wins, by = 'Manager')
-
-pts_season %>% 
-  select(Position, Manager, Wins, Points, `All-Play`, xWins, `Playoff %`, `Bye %`) %>%
-  knitr::kable(format = 'html', align = c('c', 'l', rep('c', 6)), escape = F) %>% 
-  kable_styling(bootstrap_options = c('striped', 'responsive', 'hover'),
-                full_width = F,
-                position = 'left') %>% 
-  row_spec(1:2, bold = T, color = 'white', background = '#0080ff') %>% 
-  row_spec(3:6, bold = T, color = 'white', background = '#79c973') %>% 
-  row_spec(7:12, bold = T, color = 'white', background = '#ff6666')
-
-```
-
-Wins over expectation (WOE) looks at the relationship between actual wins and all-play wins. This shows how lucky or unlucky a team has been with the schedule.
-
-Teams above the black line have been more fortunate with their schedule and teams below have been unlucky with the opponents they have faced.
-
-```{r wins vs expectation, echo = F, message = F}
-
-div(pts_season %>% 
-  ungroup() %>% 
-  plot_ly() %>% 
-  add_trace(x = ~xWins, y = ~Wins, mode = 'markers', color = ~Manager, colors = 'Paired',
-            hovertemplate = paste(pts_season$Manager, '<br>Expected Wins: %{x}', '<br>Actual Wins: %{y}', '<extra></extra>')) %>% 
-  add_trace(x = seq(0, gameweek_end), y = seq(0, gameweek_end), mode = 'lines', line = list(color = 'black', width = 0.5), showlegend = F) %>% 
-  layout(title = 'Wins vs Expected Wins',
-         xaxis = list(title = 'Expected Wins', tick0=1, dtick=1, fixedrange = TRUE),
-         yaxis = list(title = 'Actual Wins', tick0=1, dtick=1, fixedrange = TRUE),
-         hovermode = 'compare',
-         legend = list(orientation = 'h', y = -0.3),
-         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent') %>%
-  plotly::style(hoverinfo = 'none'), align = 'left')
-  #add_text(textposition = 'top')
-
-```
-
-`r pts_season %>% filter(WOE == max(WOE)) %>% pull(Manager)` has been the luckiest so far, with `r pts_season %>% filter(WOE == max(WOE)) %>% pull(WOE) %>% nth(1)` more wins than expected.
-
-`r pts_season %>% filter(WOE == min(WOE)) %>% pull(Manager)` can feel hard done by, with `r pts_season %>% filter(WOE == min(WOE)) %>% mutate(WOE = -WOE) %>% pull(WOE) %>% nth(1)` fewer wins than expected.
-
-------------------------------------------------------------------------
-
-# Story of the Season
-
-The following chart shows the performance of each team as the season has progressed. This is calculated as the xWins for each week minus the average wins each week (0.5). This strips out any influence of matchup and purely looks at your points position in a given week.
-
-For example, an increasing line in the first half of the season followed by a decreasing line over the second half would signify good performance to start the year, but a poor run to end the season.
-
-```{r xwins vs average, echo = F, message = F}
-
-xWins_vs_avg <- pts_week %>% 
-  filter(gameweek<=gameweek_end) %>% 
-  mutate(xWins = all_play/11) %>% 
-  group_by(Manager) %>% 
-  mutate(cum_Wins = cumsum(win),
-         cum_xWins = round(cumsum(xWins), 1),
-         win_diff = cum_xWins - gameweek/2)
-
-div(xWins_vs_avg |> 
-  ungroup() |> 
-  plot_ly(y = ~win_diff) |> 
-  add_trace(x = ~gameweek, color = ~Manager, type = 'scatter', mode = 'lines', colors = 'Paired', text = ~Manager,
-            hovertemplate = paste('Week %{x}', '<br>%{text}', '<br>xWins vs Avg: %{y}', '<extra></extra>')) |> 
-  layout(title = 'xWins vs Average over the Season',
-         xaxis = list(title = 'Week',fixedrange = TRUE, tickmode = 'linear'),
-         yaxis = list(title = 'xWins vs Average',  categoryorder = "array", categoryarray = ~win_diff, tick0=1, dtick=1, fixedrange = TRUE),
-         legend = list(orientation = 'h', y = -0.3),
-         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
-
-```
-
-------------------------------------------------------------------------
-
-# League Position Tracker
-
-The next table tracks the league position by week for each team in the league. To isolate a single team's record, double click on the legend on the right.
-
-```{r position chart, echo = F, message = F}
-
-position <- pts_week %>% 
-  filter(gameweek<=gameweek_end) %>% 
-  group_by(Manager) %>% 
-  summarise(csum_win = cumsum(win),
-            csum_pts = cumsum(pts)) %>% 
-  mutate(gameweek = rep(1:gameweek_end)) %>% 
-  ungroup() %>% 
-  group_by(gameweek) %>% 
-  mutate(Position = league_size + 1 - rank(csum_win + csum_pts/10000))
-
-div(position %>% 
-  ungroup() %>% 
-  plot_ly(y = ~Position) %>% 
-  add_trace(x = ~gameweek, color = ~Manager, type = 'scatter', mode = 'lines+markers', colors = 'Paired', text = ~Manager, color = ~Manager,
-            hovertemplate = paste('Week %{x}', '<br>%{text}', '<br>Position: %{y}', '<extra></extra>')) %>% 
-  layout(title = 'League Position by Week',
-         xaxis = list(title = 'Week',fixedrange = TRUE, tickmode = 'linear'),
-         yaxis = list(title = 'League Position',  categoryorder = "array", categoryarray = ~Position, autorange = 'reversed', tick0=1, dtick=1,
-                      range=c(1,12), fixedrange = TRUE),
-         legend = list(orientation = 'h', y = -0.3),
-         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
-
-```
-
 ```{r calculate potential points, include = F}
 
 datalist_i = list()
@@ -631,6 +451,200 @@ pp_weekly_matchup <- pp_week %>%
   filter(matchup_id==lead(matchup_id)) %>% 
   rename(pp.x = pp, pp.y = pp_opponent) %>% 
   select(-win, -roster_id, -opponent_id)
+
+```
+
+------------------------------------------------------------------------
+
+# Playoff Hunt
+
+The hunt for the playoffs as it stands. All-play is the record if all teams were to play each other every week. xWins is the number of wins you would have expected so far based on the all-play record. The playoff and bye % is calculated by randomly assigning each team a weekly score (from any team) since the league began in 2019. **`r as.character(sims)`** different seasons have been simulated using the wins to date and the remaining fixtures for each team. Strength of roster isn't taken into account in these calculations.
+
+```{r playoff hunt, echo = F, message = F}
+
+pts_week <- matchup_data %>% 
+  filter(starter_ind==1) %>% 
+  group_by(gameweek, roster_id, Manager) %>% 
+  summarise(pts = sum(Points)) %>% 
+  left_join(matchup_id[, c('opponent_id', 'roster_id', 'gameweek')], by = c('gameweek', 'roster_id')) %>% 
+  left_join(x=., y=.[, c('gameweek', 'opponent_id', 'pts')], by = c('gameweek', 'roster_id' = 'opponent_id')) %>% 
+  rename(pts = pts.x, pts_opponent = pts.y) %>% 
+  mutate(win = if_else(pts > pts_opponent, 1,
+                       if_else(pts_opponent > pts, 0, 0.5))) %>% 
+  ungroup %>% 
+  group_by(gameweek) %>% 
+  mutate(all_play = rank(pts)-1) %>% 
+  left_join(matchup_id[, c('matchup_id', 'roster_id', 'gameweek')], by = c('roster_id', 'gameweek'))
+
+datalist_sim = list()
+for (i in 1:sims) {
+  set.seed(i)
+  gameweek_sim <- matchup_data %>%
+    select(matchup_id, gameweek) %>% 
+    distinct() %>% 
+    rowwise() %>% 
+    mutate(home_pts = sample(as.numeric(score_data_historic$points), 1, replace=F),
+           away_pts = sample(as.numeric(score_data_historic$points), 1, replace=F),
+           away_pts = if_else(home_pts==away_pts, away_pts+sample(c(-1,1), 1), away_pts))
+  
+  pts_sim <- pts_week %>% 
+    left_join(gameweek_sim, by = c('matchup_id', 'gameweek')) %>% 
+    left_join(pp_week[, c('roster_id', 'gameweek', 'pp', 'win')], by = c('roster_id', 'gameweek'), suffix = c('', '_pp')) %>% 
+    mutate(roster_id = as.numeric(roster_id),
+           opponent_id = as.numeric(opponent_id),
+           win_sim = if_else(roster_id<opponent_id, if_else(home_pts>away_pts, 1, 0), if_else(away_pts>home_pts, 1, 0)),
+           win_sim = if_else(gameweek>gameweek_end, win_sim, win),
+           pts_sim = if_else(roster_id<opponent_id, home_pts, away_pts),
+           pts_sim = if_else(gameweek>gameweek_end, pts_sim, pts),
+           pp_sim = if_else(gameweek>gameweek_end, pts_sim*pp_uplift, pp),
+           pp_win_sim = if_else(gameweek>gameweek_end, win_sim, win_pp),
+           nxt_wk_win = if_else(gameweek==gameweek_end+1, win_sim, 0))
+  
+  table_sim <- pts_sim %>% 
+    group_by(Manager) %>% 
+    summarise(Wins = sum(win_sim),
+              Points = sum(pts_sim),
+              PWins = sum(pp_win_sim),
+              PPoints = sum(pp_sim),
+              Upcoming = sum(nxt_wk_win)) %>% 
+    arrange(desc(Wins), desc(Points)) %>% 
+    mutate(Position = seq.int(nrow(.)),
+           Playoff = if_else(Position<=6, 1, 0),
+           Bye = if_else(Position<=2, 1, 0)) %>% 
+    arrange(Playoff, PWins, PPoints) %>% 
+    mutate(Draft_Pos = seq.int(nrow(.))) %>% 
+    ungroup
+  
+  datalist_sim[[i]] = table_sim
+}
+sim_wins_raw <- bind_rows(datalist_sim)
+
+sim_wins <- sim_wins_raw %>% 
+  group_by(Manager) %>% 
+  summarise(`Playoff %` = round(mean(Playoff)*100, 1),
+            `Bye %` = round(mean(Bye)*100, 1))
+
+sim_draft <- sim_wins_raw %>% 
+  group_by(Manager, Draft_Pos) %>% 
+  summarise(Count = round(n()/sims, 3)) %>% 
+  pivot_wider(id_cols = 'Manager', names_from = 'Draft_Pos', values_from = 'Count') %>% 
+  mutate(Order = (`1`*1 + `2`*2 + `3`*3 + `4`*4 + `5`*5 + `6`*6)/(`1`+`2`+`3`+`4`+`5`+`6`)) %>% 
+  arrange(Order) %>% 
+  select(1:7)
+rm(table_sim, i, pts_sim, gameweek_sim, datalist_sim)
+
+pts_season <- pts_week %>%
+  filter(gameweek<=gameweek_end) %>% 
+  group_by(Manager) %>% 
+  summarise(Wins = sum(win),
+            Points = sum(pts),
+            All_Play = sum(all_play)) %>% 
+  arrange(desc(Wins), desc(Points)) %>% 
+  mutate(`All-Play` = paste0(All_Play,'-', (league_size-1)*(gameweek_end-gameweek_start+1)-All_Play),
+         xWins = round(All_Play/(league_size-1), 1),
+         WOE = Wins - xWins,
+         Position = league_size + 1 - rank(Wins + Points/10000)) %>% 
+  left_join(sim_wins, by = 'Manager')
+
+pts_season %>% 
+  select(Position, Manager, Wins, Points, `All-Play`, xWins, `Playoff %`, `Bye %`) %>%
+  knitr::kable(format = 'html', align = c('c', 'l', rep('c', 6)), escape = F) %>% 
+  kable_styling(bootstrap_options = c('striped', 'responsive', 'hover'),
+                full_width = F,
+                position = 'left') %>% 
+  row_spec(1:2, bold = T, color = 'white', background = '#0080ff') %>% 
+  row_spec(3:6, bold = T, color = 'white', background = '#79c973') %>% 
+  row_spec(7:12, bold = T, color = 'white', background = '#ff6666')
+
+```
+
+Wins over expectation (WOE) looks at the relationship between actual wins and all-play wins. This shows how lucky or unlucky a team has been with the schedule.
+
+Teams above the black line have been more fortunate with their schedule and teams below have been unlucky with the opponents they have faced.
+
+```{r wins vs expectation, echo = F, message = F}
+
+div(pts_season %>% 
+  ungroup() %>% 
+  plot_ly() %>% 
+  add_trace(x = ~xWins, y = ~Wins, mode = 'markers', color = ~Manager, colors = 'Paired',
+            hovertemplate = paste(pts_season$Manager, '<br>Expected Wins: %{x}', '<br>Actual Wins: %{y}', '<extra></extra>')) %>% 
+  add_trace(x = seq(0, gameweek_end), y = seq(0, gameweek_end), mode = 'lines', line = list(color = 'black', width = 0.5), showlegend = F) %>% 
+  layout(title = 'Wins vs Expected Wins',
+         xaxis = list(title = 'Expected Wins', tick0=1, dtick=1, fixedrange = TRUE),
+         yaxis = list(title = 'Actual Wins', tick0=1, dtick=1, fixedrange = TRUE),
+         hovermode = 'compare',
+         legend = list(orientation = 'h', y = -0.3),
+         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent') %>%
+  plotly::style(hoverinfo = 'none'), align = 'left')
+  #add_text(textposition = 'top')
+
+```
+
+**`r pts_season %>% filter(WOE == max(WOE)) %>% pull(Manager)`** has been the luckiest so far, with **`r pts_season %>% filter(WOE == max(WOE)) %>% pull(WOE) %>% nth(1)`** more wins than expected.
+
+**`r pts_season %>% filter(WOE == min(WOE)) %>% pull(Manager)`** can feel hard done by, with **`r pts_season %>% filter(WOE == min(WOE)) %>% mutate(WOE = -WOE) %>% pull(WOE) %>% nth(1)`** fewer wins than expected.
+
+------------------------------------------------------------------------
+
+# Story of the Season
+
+The following chart shows the performance of each team as the season has progressed. This is calculated as the xWins for each week minus the average wins each week (0.5). This strips out any influence of matchup and purely looks at your points position in a given week.
+
+For example, an increasing line in the first half of the season followed by a decreasing line over the second half would signify good performance to start the year, but a poor run to end the season.
+
+```{r xwins vs average, echo = F, message = F}
+
+xWins_vs_avg <- pts_week %>% 
+  filter(gameweek<=gameweek_end) %>% 
+  mutate(xWins = all_play/11) %>% 
+  group_by(Manager) %>% 
+  mutate(cum_Wins = cumsum(win),
+         cum_xWins = round(cumsum(xWins), 1),
+         win_diff = cum_xWins - gameweek/2)
+
+div(xWins_vs_avg |> 
+  ungroup() |> 
+  plot_ly(y = ~win_diff) |> 
+  add_trace(x = ~gameweek, color = ~Manager, type = 'scatter', mode = 'lines', colors = 'Paired', text = ~Manager,
+            hovertemplate = paste('Week %{x}', '<br>%{text}', '<br>xWins vs Avg: %{y}', '<extra></extra>')) |> 
+  layout(title = 'xWins vs Average over the Season',
+         xaxis = list(title = 'Week',fixedrange = TRUE, tickmode = 'linear'),
+         yaxis = list(title = 'xWins vs Average',  categoryorder = "array", categoryarray = ~win_diff, tick0=1, dtick=1, fixedrange = TRUE),
+         legend = list(orientation = 'h', y = -0.3),
+         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
+
+```
+
+------------------------------------------------------------------------
+
+# League Position Tracker
+
+The next table tracks the league position by week for each team in the league. To isolate a single team's record, double click on the legend on the right.
+
+```{r position chart, echo = F, message = F}
+
+position <- pts_week %>% 
+  filter(gameweek<=gameweek_end) %>% 
+  group_by(Manager) %>% 
+  summarise(csum_win = cumsum(win),
+            csum_pts = cumsum(pts)) %>% 
+  mutate(gameweek = rep(1:gameweek_end)) %>% 
+  ungroup() %>% 
+  group_by(gameweek) %>% 
+  mutate(Position = league_size + 1 - rank(csum_win + csum_pts/10000))
+
+div(position %>% 
+  ungroup() %>% 
+  plot_ly(y = ~Position) %>% 
+  add_trace(x = ~gameweek, color = ~Manager, type = 'scatter', mode = 'lines+markers', colors = 'Paired', text = ~Manager, color = ~Manager,
+            hovertemplate = paste('Week %{x}', '<br>%{text}', '<br>Position: %{y}', '<extra></extra>')) %>% 
+  layout(title = 'League Position by Week',
+         xaxis = list(title = 'Week',fixedrange = TRUE, tickmode = 'linear'),
+         yaxis = list(title = 'League Position',  categoryorder = "array", categoryarray = ~Position, autorange = 'reversed', tick0=1, dtick=1,
+                      range=c(1,12), fixedrange = TRUE),
+         legend = list(orientation = 'h', y = -0.3),
+         paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
 
 ```
 
@@ -783,11 +797,13 @@ projected_draft <- pp_season %>%
 
 ------------------------------------------------------------------------
 
-# Projected Draft Picks {.tabset .tabset-fade}
+# Draft Picks
+
+## Projected Draft Order{.tabset .tabset-fade}
 
 The `r draft_rounds` rounds of the `r (season+1)` rookie draft are shown below, using the potential points order as at today.
 
-## Round 1
+### Round 1
 
 ```{r round1, echo=F}
 
@@ -804,7 +820,7 @@ projected_draft_table %>%
 
 ```
 
-## Round 2
+### Round 2
 
 ```{r round2, echo=F}
 
@@ -821,7 +837,7 @@ projected_draft_table %>%
 
 ```
 
-## Round 3
+### Round 3
 
 ```{r round3, echo=F}
 
@@ -838,7 +854,7 @@ projected_draft_table %>%
 
 ```
 
-## Round 4
+### Round 4
 
 ```{r round4, echo=F}
 
@@ -856,7 +872,46 @@ rm(projected_draft_table)
 
 ```
 
-##  {.unnumbered}
+<br>
+
+## Draft Pick Likelihood
+
+The following chart shows the likelihood of drafting at each position in the top 6. Picks 7-12 have been removed as the playoffs determine the back half of the first round.
+
+``` {r draft position probability, echo=F, message=F}
+
+max_prob = max(sim_draft[2:7])
+min_prob = min(sim_draft[2:7])
+mid_prob = max_prob-min_prob
+
+pal <- scales::gradient_n_pal(colours = c('#f87274', '#FCB9BA', '#ffffff'),values= c(max_prob, mid_prob, min_prob))
+# pal <- scales::gradient_n_pal(colours = c('#f87274', '#63be7b'),values= c(min_prob, max_prob))
+
+draft_color <- sim_draft %>% 
+  pivot_longer(cols = 2:7, names_to = 'Pick', values_to = 'Probability') %>% 
+  mutate(color_values = pal(Probability)) %>% 
+  select(-Probability) %>% 
+  pivot_wider('Manager', names_from = 'Pick', values_from = 'color_values') %>% 
+  replace(is.na(.), '#FFFFFF')
+
+percent_0.1 <- function(x) (percent(x, 0.1))
+
+sim_draft %>% 
+  mutate_at(2:7, percent_0.1) %>% 
+  kable(format = 'html', escape = F, align = c('l', rep('c', 6)),
+        col.names = c('', '1', '2', '3', '4', '5', '6')) %>%
+  kable_styling(bootstrap_options = c('striped', 'hover', 'responsive'), full_width = F,
+                position = 'l') %>% 
+  column_spec(1, color = 'black') %>% 
+  column_spec(2, color = 'black', background = draft_color[[2]]) %>% 
+  column_spec(3, color = 'black', background = draft_color[[3]]) %>% 
+  column_spec(4, color = 'black', background = draft_color[[4]]) %>% 
+  column_spec(5, color = 'black', background = draft_color[[5]]) %>% 
+  column_spec(6, color = 'black', background = draft_color[[6]]) %>% 
+  column_spec(7, color = 'black', background = draft_color[[7]]) %>% 
+  add_header_above(c(" " = 1, "Draft Pick" = 6))
+
+```
 
 ------------------------------------------------------------------------
 
