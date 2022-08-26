@@ -41,7 +41,7 @@ ff_league <- ff_league(dynasty_conn)
 gameweek_start <- 1
 gameweek_end <- 1
 league_size <- as.numeric(ff_league$franchise_count)
-sims <- 10000
+sims <- 100
 draft_rounds <- 4
 pp_uplift <- 1.175
 
@@ -530,7 +530,10 @@ sim_draft <- sim_wins_raw %>%
   pivot_wider(id_cols = 'Manager', names_from = 'Draft_Pos', values_from = 'Count') %>% 
   mutate(Order = (`1`*1 + `2`*2 + `3`*3 + `4`*4 + `5`*5 + `6`*6)/(`1`+`2`+`3`+`4`+`5`+`6`)) %>% 
   arrange(Order) %>% 
-  select(1:7)
+  left_join(sim_wins[, c('Manager', 'Playoff %')], by = 'Manager') %>% 
+  mutate(Playoffs = `Playoff %`/100) %>% 
+  select(1:7, Playoffs) 
+  
 rm(table_sim, i, pts_sim, gameweek_sim, datalist_sim)
 
 pts_season <- pts_week %>%
@@ -897,9 +900,9 @@ draft_color <- sim_draft %>%
 percent_0.1 <- function(x) (percent(x, 0.1))
 
 sim_draft %>% 
-  mutate_at(2:7, percent_0.1) %>% 
-  kable(format = 'html', escape = F, align = c('l', rep('c', 6)),
-        col.names = c('', '1', '2', '3', '4', '5', '6')) %>%
+  mutate_at(2:8, percent_0.1) %>% 
+  kable(format = 'html', escape = F, align = c('l', rep('c', 7)),
+        col.names = c('', '1', '2', '3', '4', '5', '6', 'Playoffs')) %>%
   kable_styling(bootstrap_options = c('striped', 'hover', 'responsive'), full_width = F,
                 position = 'l') %>% 
   column_spec(1, color = 'black') %>% 
@@ -909,7 +912,7 @@ sim_draft %>%
   column_spec(5, color = 'black', background = draft_color[[5]]) %>% 
   column_spec(6, color = 'black', background = draft_color[[6]]) %>% 
   column_spec(7, color = 'black', background = draft_color[[7]]) %>% 
-  add_header_above(c(" " = 1, "Draft Pick" = 6))
+  add_header_above(c(" " = 1, "Draft Pick" = 6, " " = 1))
 
 ```
 
