@@ -867,7 +867,7 @@ position <- pts_week %>%
   group_by(Manager) %>% 
   reframe(csum_win = cumsum(win),
             csum_pts = cumsum(pts)) %>% 
-  mutate(gameweek = rep(1:gameweek_end, 12)) %>% 
+  mutate(gameweek = rep(1:gameweek_end, league_size)) %>% 
   ungroup() %>% 
   group_by(gameweek) %>% 
   mutate(Position = league_size + 1 - rank(csum_win + csum_pts/10000))
@@ -962,7 +962,7 @@ matchup_imp %>%
 
 # Potential Points
 
-The following table shows the potential points that could have been scored if the perfect squad had been played. The wins column shows how many wins each manager would have if every team played their perfect selection each week.
+The following table shows the potential points that could have been scored if the perfect squad had been played each week.
 
 ```{r pp table, echo = F}
 
@@ -1288,7 +1288,7 @@ div(transactions %>%
   arrange(desc(Trade_Count)) %>% 
   plot_ly(y = ~Trade_Count) %>% 
   add_trace(x = ~Manager, type = 'bar') %>% 
-  layout(title = ' Number of 2022 Trades by Team',
+  layout(title = ' Number of 2023 Trades by Team',
          xaxis = list(title = 'Team', categoryorder = "array", categoryarray = ~Trade_Count, fixedrange = TRUE),
          yaxis = list(title = 'Number of Trades', fixedrange = TRUE),
          paper_bgcolor = 'transparent', plot_bgcolor = 'transparent'), align = 'left')
