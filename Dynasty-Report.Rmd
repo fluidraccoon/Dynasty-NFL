@@ -1,5 +1,5 @@
 ---
-title: "2023 NFL Dynasty League - Week 5"
+title: "2023 NFL Dynasty League - Week 8"
 knit: (function(input_file, encoding) {
   out_dir <- 'docs';
   rmarkdown::render(input_file,
@@ -40,7 +40,7 @@ dynasty_conn <- sleeper_connect(season = season, league_id = league_id)
 ff_league <- ff_league(dynasty_conn)
 
 gameweek_start <- 1
-gameweek_end <- 5
+gameweek_end <- 8
 league_size <- as.numeric(ff_league$franchise_count)
 sims <- 1000
 draft_rounds <- 4
@@ -69,7 +69,7 @@ remove(df,datalist,i, json_players_parsed)
 
 ```
 
-```{r KTC dynasty, echo = F}
+```{r KTC dynasty, echo = F, eval = F}
 
 KTC_dynasty_url <- read_html(paste0('https://keeptradecut.com/dynasty-rankings?page=0&filters=QB|WR|RB|TE|RDP&format=', no_of_qbs))
 
@@ -77,8 +77,10 @@ KTC = list()
 KTC$Tier <- KTC_dynasty_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[4]/p') %>% html_text
 KTC$Player <- KTC_dynasty_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[2]/p/a') %>% html_text
 KTC$Value <- KTC_dynasty_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[6]/p') %>% html_text
-KTC$Info <- KTC_dynasty_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[8]/div[4]/p[1]') %>% html_text %>% 
-  gsub('\t', '', .) %>% gsub('\n', '', .) %>% gsub('\r', '', .)
+# KTC$Info <- KTC_dynasty_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[8]/div[4]/p[1]') %>% html_text %>% 
+  # gsub('\t', '', .) %>% gsub('\n', '', .) %>% gsub('\r', '', .)
+
+KTC$Name_Team <- KTC_dynasty_url %>% html_nodes(xpath = '//*[@id="rankings-page-rankings"]/div/div/div/div[2]') %>% html_text %>% gsub('\t', '', .) %>% gsub('\n', '', .) %>% gsub('\r', '', .) %>% str_trim() %>% 
 
 df_KTC <- bind_cols(KTC) %>% 
   rowwise() %>% 
@@ -145,7 +147,7 @@ df_KTC_join <- df_KTC %>%
 
 ```
 
-```{r KTC fantasy, echo = F}
+```{r KTC fantasy, echo = F, eval = F}
 
 KTC_fantasy_url <- read_html(paste0('https://keeptradecut.com/fantasy-rankings?page=0&filters=QB|WR|RB|TE&format=', no_of_qbs))
 
@@ -1160,13 +1162,13 @@ sim_draft %>%
 
 # Roster Comparison
 
-## Dynasty
+<!-- ## Dynasty -->
 
-The value of each roster has been calculated using crowdsourced values from [KeepTradeCut](https://keeptradecut.com/dynasty-rankings). A value is calculated for each player and these are totaled.
+<!-- The value of each roster has been calculated using crowdsourced values from [KeepTradeCut](https://keeptradecut.com/dynasty-rankings). A value is calculated for each player and these are totaled. -->
 
-Draft picks for the next 2 years are also included in the estimate, but given how difficult it is to value future picks, these have been assumed to fall in the middle of the given round.
+<!-- Draft picks for the next 2 years are also included in the estimate, but given how difficult it is to value future picks, these have been assumed to fall in the middle of the given round. -->
 
-```{r roster comparison dynasty, echo = F, message = F}
+```{r roster comparison dynasty, echo = F, message = F, eval = F}
 
 rosters <- rosters %>% 
   left_join(traded_picks[, c('owner_id', 'roster_id', 'pick_name')], by = c('roster_id', 'full_name' = 'pick_name'), suffix = c('', '.new')) %>% 
@@ -1208,11 +1210,11 @@ div(dynasty_roster_value_pos %>%
 
 ```
 
-## Contender
+<!-- ## Contender -->
 
-The following chart uses a similar concept, but looks at the value of the squad for this season. The chart above will take into account the long term value of a player, whereas this chart purely looks at squad value for the remainder of this season. Any injuries will affect the value and immediate competitiveness of each team.
+<!-- The following chart uses a similar concept, but looks at the value of the squad for this season. The chart above will take into account the long term value of a player, whereas this chart purely looks at squad value for the remainder of this season. Any injuries will affect the value and immediate competitiveness of each team. -->
 
-```{r roster comparison fantasy, echo = F, message = F}
+```{r roster comparison fantasy, echo = F, message = F, eval = F}
 
 rosters <- rosters %>% 
   left_join(df_KTC_fantasy_join[, c('player_id', 'Value')], by = 'player_id', suffix = c('', '.contender')) 
